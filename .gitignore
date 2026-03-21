@@ -16,3 +16,8 @@ kernel/kernel
 user/usys.S
 .gdbinit
 TAGS
+tags
+cscope.files
+cscope.in.out
+cscope.out
+cscope.po.out
