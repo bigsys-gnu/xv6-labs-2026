@@ -35,6 +35,9 @@ main(void)
       printf("init: exec sh failed\n");
       exit(1);
     }
+  
+    printf("ID: 202600001\n");
+    printf("Name: Jaeho Kim\n");
 
     for(;;){
       // this call to wait() returns if the shell exits,
