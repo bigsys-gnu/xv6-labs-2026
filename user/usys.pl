@@ -42,3 +42,5 @@ entry("getpid");
 entry("sbrk");
 entry("pause");
 entry("uptime");
+entry("get_runtime");   # Lab3
+entry("set_priority");   # Lab4

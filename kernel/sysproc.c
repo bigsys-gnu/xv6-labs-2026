@@ -7,6 +7,8 @@
 #include "proc.h"
 #include "vm.h"
 
+extern struct proc proc[];  // Lab3
+
 uint64
 sys_exit(void)
 {
@@ -106,4 +108,39 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+// Lab3: return runtime of the process
+uint64
+sys_get_runtime(void)
+{
+  int pid;
+  argint(0, &pid);   // 첫 번째 인자(PID) 읽기
+
+  struct proc *p;
+  for(p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if(p->pid == pid) {
+      int rt = p->runtime;
+      release(&p->lock);
+      return rt;
+    }
+    release(&p->lock);
+  }
+  return -1;   // PID를 찾지 못함
+}
+
+// Lab4: set priority
+uint64
+sys_set_priority(void)
+{
+  int priority;
+  argint(0, &priority);   // 첫 번째 인자 읽기
+
+  // 범위 검증: 0 이상 10 이하
+  if(priority < 0 || priority > 10)
+    return -1;
+
+  myproc()->priority = priority;
+  return 0;
 }

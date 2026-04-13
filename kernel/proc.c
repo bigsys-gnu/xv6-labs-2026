@@ -146,6 +146,8 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
+  p->runtime = 0;     // Lab3: init runtime
+  p->priority = 5;    // Lab4: default priority
   return p;
 }
 
@@ -302,6 +304,9 @@ kfork(void)
   np->state = RUNNABLE;
   release(&np->lock);
 
+  np->runtime = 0;              // Lab3: init runtime
+  np->priority = p->priority;   // Lab4: inherit parental priority
+
   return pid;
 }
 
@@ -424,7 +429,7 @@ kwait(uint64 addr)
 void
 scheduler(void)
 {
-  struct proc *p;
+  struct proc *p, *selected;
   struct cpu *c = mycpu();
 
   c->proc = 0;
@@ -435,27 +440,41 @@ scheduler(void)
     // to avoid a possible race between an interrupt
     // and wfi.
     intr_on();
-    intr_off();
+//    intr_off();
 
-    int found = 0;
+    // ── Step 1: 최고 우선순위 RUNNABLE 탐색 ─────────
+    selected = 0;
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
       if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
+//        printf("scan: pid=%d priority=%d\n", p->pid, p->priority);
 
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
-        found = 1;
+        if(selected == 0 ||
+           p->priority < selected->priority) {
+          // 더 높은 우선순위 발견: 이전 후보 lock 해제
+          if(selected != 0)
+            release(&selected->lock);
+          selected = p;   // 새 후보
+          // selected->lock은 계속 보유
+        } else {
+          release(&p->lock);
+        }
+      } else {
+        release(&p->lock);
       }
-      release(&p->lock);
     }
-    if(found == 0) {
+
+    // ── Step 2: 선택된 프로세스 실행 ─────────────────
+    if(selected != 0) {
+      printf("[selected]: pid=%d priority=%d\n", selected->pid, selected->priority);
+      selected->state = RUNNING;
+      c->proc = selected;
+      swtch(&c->context, &selected->context);
+      c->proc = 0;
+      release(&selected->lock);
+    }
+
+    if(selected == 0) {
       // nothing to run; stop running on this core until an interrupt.
       asm volatile("wfi");
     }
