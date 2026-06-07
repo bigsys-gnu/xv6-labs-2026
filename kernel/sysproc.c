@@ -7,7 +7,9 @@
 #include "proc.h"
 #include "vm.h"
 
-uint64
+extern struct proc proc[];
+
+  uint64
 sys_exit(void)
 {
   int n;
@@ -106,4 +108,22 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+uint64
+sys_get_queue_level(void)
+{
+  int pid;
+  argint(0, &pid);
+  struct proc *p;
+  for(p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if(p->pid == pid) {
+      int ql = p->queue_level;
+      release(&p->lock);
+      return ql;
+    }
+    release(&p->lock);
+  }
+  return -1;
 }

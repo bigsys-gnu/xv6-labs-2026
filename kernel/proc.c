@@ -146,6 +146,10 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
+  // Lab4: MLFQ init
+  p->queue_level = 0;   // Rlue 3: new process starts at highest queue
+  p->used_ticks = 0;
+
   return p;
 }
 
@@ -292,6 +296,10 @@ kfork(void)
 
   pid = np->pid;
 
+  // Lab4: inherit parent's queue level
+  np->queue_level = p->queue_level;
+  np->used_ticks = 0;     // child start fresh at this level
+
   release(&np->lock);
 
   acquire(&wait_lock);
@@ -425,6 +433,7 @@ void
 scheduler(void)
 {
   struct proc *p;
+  struct proc *selected;
   struct cpu *c = mycpu();
 
   c->proc = 0;
@@ -437,25 +446,32 @@ scheduler(void)
     intr_on();
     intr_off();
 
-    int found = 0;
+    selected = 0;
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
       if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
-
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
-        found = 1;
+        if(selected == 0 ||
+           p->queue_level < selected->queue_level) {
+          if(selected != 0)
+            release(&selected->lock);
+          selected = p;
+        } else {
+          release(&p->lock);
+        }
+      } else {
+        release(&p->lock);
       }
-      release(&p->lock);
     }
-    if(found == 0) {
+    
+    if(selected != 0) {
+      selected->state = RUNNING;
+      c->proc = selected;
+      swtch(&c->context, &selected->context);
+      c->proc = 0;
+      release(&selected->lock);
+    } 
+    
+    if(selected == 0) {
       // nothing to run; stop running on this core until an interrupt.
       asm volatile("wfi");
     }
@@ -557,6 +573,9 @@ sleep(void *chan, struct spinlock *lk)
   // Go to sleep.
   p->chan = chan;
   p->state = SLEEPING;
+  
+  // Lab4(mlfq) 
+  p->used_ticks = 0;    // reset ticks but keep queue_level
 
   sched();
 

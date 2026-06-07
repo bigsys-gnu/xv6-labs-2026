@@ -8,7 +8,9 @@
 
 struct spinlock tickslock;
 uint ticks;
+int mlfq_ticks = 0;   // global tick counter for priority boost
 
+extern struct proc proc[];
 extern char trampoline[], uservec[];
 
 // in kernelvec.S, calls kerneltrap().
@@ -81,8 +83,43 @@ usertrap(void)
     kexit(-1);
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2)
+  if(which_dev == 2) {
+    struct proc *p = myproc();
+    if(p != 0) {
+      // ── TODO 2: increment used_ticks ──────────────────────────
+      p->used_ticks++;
+
+      // ── TODO 3: demote if time slice exhausted ────────────────
+      int limit = 1 << p->queue_level;   // Q0:1, Q1:2, Q2:4
+      if(p->used_ticks >= limit) {
+        if(p->queue_level < NMLFQ - 1) {
+          printf("[MLFQ] PID=%d demoted Q%d -> Q%d at tick=%d\n",
+               p->pid, p->queue_level,
+               p->queue_level+1, ticks); 
+          
+          p->queue_level++;
+          p->used_ticks = 0;
+        }
+      }
+
+      // ── TODO 5: priority boost ────────────────────────────────
+      mlfq_ticks++;
+      if(mlfq_ticks % BOOST_INTERVAL == 0) {
+        printf("[MLFQ] PID=%d Priority Boost at tick=%d\n", p->pid, ticks);
+        struct proc *pp;
+        for(pp = proc; pp < &proc[NPROC]; pp++) {
+          acquire(&pp->lock);
+          if(pp->state != UNUSED) {
+            pp->queue_level = 0;
+            pp->used_ticks = 0;
+          }
+          release(&pp->lock);
+        }
+      }
+      // ──────────────────────────────────────────────────────────
+    }
     yield();
+  }
 
   prepare_return();
 

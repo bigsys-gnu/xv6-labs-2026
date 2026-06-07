@@ -104,4 +104,8 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+
+  // Lab4(MLFQ)
+  int queue_level;              // current queue: 0 (highest) ~ NMLFQ-1 (lowest)
+  int used_ticks;               // ticks consumed at current queue level 
 };
