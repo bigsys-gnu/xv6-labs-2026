@@ -20,3 +20,6 @@
 #define SYS_link   19
 #define SYS_mkdir  20
 #define SYS_close  21
+#define SYS_get_fsinfo        23
+#define SYS_get_inode_info    24
+#define SYS_get_free_blocks   25

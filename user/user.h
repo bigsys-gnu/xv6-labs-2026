@@ -1,6 +1,8 @@
 #define SBRK_ERROR ((char *)-1)
 
 struct stat;
+struct fsinfo;
+struct dinode;
 
 // system calls
 int fork(void);
@@ -24,6 +26,9 @@ int getpid(void);
 char* sys_sbrk(int,int);
 int pause(int);
 int uptime(void);
+int get_fsinfo(struct fsinfo *);
+int get_inode_info(int inum, struct dinode *);
+int get_free_blocks(void);
 
 // ulib.c
 int stat(const char*, struct stat*);

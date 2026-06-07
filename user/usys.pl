@@ -42,3 +42,6 @@ entry("getpid");
 entry("sbrk");
 entry("pause");
 entry("uptime");
+entry("get_fsinfo");
+entry("get_inode_info");
+entry("get_free_blocks");

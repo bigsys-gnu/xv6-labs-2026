@@ -6,6 +6,12 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "vm.h"
+#include "fs.h"
+#include "sleeplock.h"
+#include "buf.h"
+#include "fsinfo.h"
+
+extern struct superblock sb;
 
 uint64
 sys_exit(void)
@@ -106,4 +112,67 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+// Copy the superblock's layout fields to a user struct fsinfo.
+uint64
+sys_get_fsinfo(void)
+{
+  uint64 addr;
+  struct fsinfo info;
+
+  argaddr(0, &addr);
+
+  info.size       = sb.size;
+  info.nblocks    = sb.nblocks;
+  info.ninodes    = sb.ninodes;
+  info.nlog       = sb.nlog;
+  info.logstart   = sb.logstart;
+  info.inodestart = sb.inodestart;
+  info.bmapstart  = sb.bmapstart;
+
+  if(copyout(myproc()->pagetable, addr, (char*)&info, sizeof(info)) < 0)
+    return -1;
+  return 0;
+}
+
+// Copy the on-disk inode inum to a user struct dinode.
+uint64
+sys_get_inode_info(void)
+{
+  int inum;
+  uint64 addr;
+  struct buf *bp;
+  struct dinode di;
+
+  argint(0, &inum);
+  argaddr(1, &addr);
+  if(inum <= 0 || inum >= (int)sb.ninodes)
+    return -1;
+
+  bp = bread(ROOTDEV, IBLOCK(inum, sb));
+  memmove(&di, (struct dinode*)bp->data + inum % IPB, sizeof(di));
+  brelse(bp);
+
+  if(copyout(myproc()->pagetable, addr, (char*)&di, sizeof(di)) < 0)
+    return -1;
+  return 0;
+}
+
+// Count zero bits in the free-block bitmap.
+uint64
+sys_get_free_blocks(void)
+{
+  int free_count = 0;
+
+  for(uint b = 0; b < sb.size; b += BPB){
+    struct buf *bp = bread(ROOTDEV, BBLOCK(b, sb));
+    for(int bi = 0; bi < BPB && b + bi < sb.size; bi++){
+      int m = 1 << (bi % 8);
+      if((bp->data[bi/8] & m) == 0)
+        free_count++;
+    }
+    brelse(bp);
+  }
+  return free_count;
 }
