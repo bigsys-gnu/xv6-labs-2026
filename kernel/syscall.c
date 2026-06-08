@@ -104,6 +104,8 @@ extern uint64 sys_close(void);
 extern uint64 sys_get_fsinfo(void);
 extern uint64 sys_get_inode_info(void);
 extern uint64 sys_get_free_blocks(void);
+extern uint64 sys_get_fragmentation(void);
+extern uint64 sys_get_free_runs(void);
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
@@ -132,6 +134,8 @@ static uint64 (*syscalls[])(void) = {
 [SYS_get_fsinfo]       sys_get_fsinfo,
 [SYS_get_inode_info]   sys_get_inode_info,
 [SYS_get_free_blocks]  sys_get_free_blocks,
+[SYS_get_fragmentation] sys_get_fragmentation,
+[SYS_get_free_runs]    sys_get_free_runs,
 };
 
 void

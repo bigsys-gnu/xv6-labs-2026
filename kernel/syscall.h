@@ -23,3 +23,5 @@
 #define SYS_get_fsinfo        23
 #define SYS_get_inode_info    24
 #define SYS_get_free_blocks   25
+#define SYS_get_fragmentation 26
+#define SYS_get_free_runs     27

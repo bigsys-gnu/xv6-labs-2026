@@ -176,3 +176,28 @@ sys_get_free_blocks(void)
   }
   return free_count;
 }
+
+// Count the number of free "runs" in the bitmap: maximal spans of
+// consecutive free blocks. A fresh disk keeps its free space in one big
+// contiguous run (~1-2 regions); after aging punches alternating holes
+// the count jumps to many (~20+). Used as a quick "is the disk already
+// aged?" gauge, since fs.img persists across reboots.
+uint64
+sys_get_free_runs(void)
+{
+  int runs = 0;
+  int prev_free = 0;   // was the previous block free?
+
+  for(uint b = 0; b < sb.size; b += BPB){
+    struct buf *bp = bread(ROOTDEV, BBLOCK(b, sb));
+    for(int bi = 0; bi < BPB && b + bi < sb.size; bi++){
+      int m = 1 << (bi % 8);
+      int is_free = (bp->data[bi/8] & m) == 0;
+      if(is_free && !prev_free)
+        runs++;          // start of a new free run
+      prev_free = is_free;
+    }
+    brelse(bp);
+  }
+  return runs;
+}

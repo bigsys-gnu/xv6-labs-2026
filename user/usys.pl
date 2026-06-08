@@ -45,3 +45,5 @@ entry("uptime");
 entry("get_fsinfo");
 entry("get_inode_info");
 entry("get_free_blocks");
+entry("get_fragmentation");
+entry("get_free_runs");

@@ -13,6 +13,7 @@
 #include "proc.h"
 #include "fs.h"
 #include "sleeplock.h"
+#include "buf.h"
 #include "file.h"
 #include "fcntl.h"
 
@@ -502,4 +503,72 @@ sys_pipe(void)
     return -1;
   }
   return 0;
+}
+
+// Measure how scattered a file's data blocks are on disk.
+// Collects the file's block addresses in logical order (direct blocks
+// then the indirect block), counts adjacent pairs whose physical block
+// numbers are not consecutive, and normalizes to 0-100%.
+//
+// User call: get_fragmentation(fd)
+//   0%   = all blocks physically consecutive (ideal)
+//   100% = every adjacent logical pair is non-consecutive (worst)
+// Returns -1 on error (bad fd or non-regular file).
+//
+// NOTE: placed in sysfile.c (not sysproc.c) because argfd() is static
+// to this file and struct file/inode helpers are already in scope.
+uint64
+sys_get_fragmentation(void)
+{
+  int fd;
+  struct file *f;
+
+  if(argfd(0, &fd, &f) < 0)
+    return -1;
+
+  // Only regular files (FD_INODE) have addrs[] block arrays.
+  if(f->type != FD_INODE)
+    return -1;
+
+  struct inode *ip = f->ip;
+
+  uint blocks[MAXFILE];
+  int n = 0;
+
+  ilock(ip);
+
+  // Direct blocks: addrs[0..NDIRECT-1]. A 0 marks end of allocation.
+  for(int i = 0; i < NDIRECT; i++){
+    if(ip->addrs[i] == 0)
+      break;
+    blocks[n++] = ip->addrs[i];
+  }
+
+  // Indirect block: addrs[NDIRECT] points to a block of NINDIRECT uints.
+  if(ip->addrs[NDIRECT]){
+    struct buf *bp = bread(ip->dev, ip->addrs[NDIRECT]);
+    uint *a = (uint*)bp->data;
+    for(int i = 0; i < NINDIRECT; i++){
+      if(a[i] == 0)
+        break;
+      blocks[n++] = a[i];
+    }
+    brelse(bp);
+  }
+
+  iunlock(ip);
+
+  // 0 or 1 blocks: no adjacent pairs, so no fragmentation.
+  if(n <= 1)
+    return 0;
+
+  // Count non-consecutive adjacent pairs (transitions).
+  int transitions = 0;
+  for(int i = 1; i < n; i++){
+    if(blocks[i] != blocks[i-1] + 1)
+      transitions++;
+  }
+
+  // Normalize: multiply before dividing to avoid integer truncation.
+  return (transitions * 100) / (n - 1);
 }

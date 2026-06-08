@@ -146,6 +146,8 @@ UPROGS=\
 	$U/_forphan\
 	$U/_dorphan\
 	$U/_fsdump\
+	$U/_aging\
+	$U/_fragtest\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)

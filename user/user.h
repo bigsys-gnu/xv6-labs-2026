@@ -29,6 +29,12 @@ int uptime(void);
 int get_fsinfo(struct fsinfo *);
 int get_inode_info(int inum, struct dinode *);
 int get_free_blocks(void);
+// Returns 0-100 (fragmentation percentage), or -1 on error.
+// fd must refer to a regular file opened with open().
+int get_fragmentation(int fd);
+// Number of free-block "runs" (regions) in the bitmap. ~1-2 on a fresh
+// disk, many (~20+) once aging has punched holes. Quick aging gauge.
+int get_free_runs(void);
 
 // ulib.c
 int stat(const char*, struct stat*);
